@@ -16,5 +16,6 @@ type handlers struct {
 func RegisterHandlers(e *echo.Echo, storage *storage.Storage) {
 	h := handlers{storage: storage}
 	e.Use(h.authDevice)
+	e.Use(h.checkinDevice)
 	e.GET("/device", h.deviceGet)
 }

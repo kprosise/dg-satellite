@@ -62,6 +62,25 @@ func (h handlers) authDevice(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+func (h handlers) checkinDevice(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		req := c.Request()
+		ctx := req.Context()
+		d := CtxGetDevice(ctx)
+
+		apps := getHeader(req, "x-ats-dockerapps", d.Apps)
+		hash := getHeader(req, "x-ats-ostreehash", d.OstreeHash)
+		tag := getHeader(req, "x-ats-tags", d.Tag)
+		target := getHeader(req, "x-ats-target", d.TargetName)
+
+		if err := d.CheckIn(target, tag, hash, apps); err != nil {
+			log := CtxGetLog(ctx)
+			log.Error("Failed to update device check-in info", "error", err)
+		}
+		return next(c)
+	}
+}
+
 func pubkey(cert *x509.Certificate) (string, error) {
 	derBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	if err != nil {
@@ -82,4 +101,13 @@ func getBusinessCategory(subject pkix.Name) string {
 		}
 	}
 	return ""
+}
+
+func getHeader(req *http.Request, header, defVal string) string {
+	// Differentiate between an empty header value (unset) and missing header value (ignore).
+	if v := req.Header.Values(header); len(v) > 0 {
+		return v[0]
+	} else {
+		return defVal
+	}
 }

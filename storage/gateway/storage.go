@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/foundriesio/dg-satellite/storage"
@@ -53,17 +52,30 @@ type Device struct {
 	storage Storage
 
 	Uuid       string
-	PubKey     string
-	UpdateName string
+	Apps       string
 	Deleted    bool
-	LastSeen   int64
 	IsProd     bool
+	LastSeen   int64
+	OstreeHash string
+	PubKey     string
+	TargetName string
+	Tag        string
+	UpdateName string
 }
 
-func (d *Device) CheckIn(targetName, tag, ostreeHash string, apps []string) error {
-	appsStr := strings.Join(apps, ",")
+func (d *Device) CheckIn(targetName, tag, ostreeHash string, apps string) error {
 	now := time.Now().Unix()
-	return d.storage.stmtDeviceCheckIn.run(d.Uuid, targetName, tag, ostreeHash, appsStr, now)
+	if apps == d.Apps && ostreeHash == d.OstreeHash && tag == d.Tag && targetName == d.TargetName && now-d.LastSeen < 60 {
+		// Skip database updating when all fields are the same and last checkin was less than a minute ago.
+		return nil
+	}
+	// Update in-memory device object fields to new actual values
+	d.Apps = apps
+	d.LastSeen = now
+	d.OstreeHash = ostreeHash
+	d.Tag = tag
+	d.TargetName = targetName
+	return d.storage.stmtDeviceCheckIn.run(d.Uuid, targetName, tag, ostreeHash, apps, now)
 }
 
 func (d *Device) PutFile(name string, content string) error {
@@ -174,7 +186,7 @@ type stmtDeviceGet storage.DbStmt
 
 func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 	s.Stmt, err = db.Prepare("DeviceGet", `
-		SELECT deleted, pubkey, update_name, last_seen, is_prod
+		SELECT deleted, pubkey, update_name, last_seen, is_prod, tag, target_name, ostree_hash, apps
 		FROM devices
 		WHERE uuid = ?`,
 	)
@@ -182,5 +194,6 @@ func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 }
 
 func (s *stmtDeviceGet) run(uuid string, d *Device) error {
-	return s.Stmt.QueryRow(uuid).Scan(&d.Deleted, &d.PubKey, &d.UpdateName, &d.LastSeen, &d.IsProd)
+	return s.Stmt.QueryRow(uuid).Scan(
+		&d.Deleted, &d.PubKey, &d.UpdateName, &d.LastSeen, &d.IsProd, &d.Tag, &d.TargetName, &d.OstreeHash, &d.Apps)
 }

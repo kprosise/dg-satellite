@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/foundriesio/dg-satellite/context"
@@ -44,11 +45,19 @@ func (c testClient) Do(req *http.Request) *httptest.ResponseRecorder {
 	return rec
 }
 
-func (c testClient) GET(resource string, status int) []byte {
+func (c testClient) GET(resource string, status int, headers ...string) []byte {
 	req := httptest.NewRequest(http.MethodGet, resource, nil)
+	c.marshalHeaders(headers, req)
 	rec := c.Do(req)
 	require.Equal(c.t, http.StatusOK, rec.Code)
 	return rec.Body.Bytes()
+}
+
+func (c testClient) marshalHeaders(headers []string, req *http.Request) {
+	require.Zero(c.t, len(headers)%2, "Headers must be a sequence of names and values - even number")
+	for i := 0; i < len(headers)/2; i++ {
+		req.Header.Add(headers[i*2], headers[i*2+1])
+	}
 }
 
 func NewTestClient(t *testing.T) *testClient {
@@ -90,6 +99,42 @@ func TestApiDevice(t *testing.T) {
 	deviceBytes := tc.GET("/device", 200)
 	var device storage.Device
 	require.Nil(t, json.Unmarshal(deviceBytes, &device))
-	require.Equal(t, tc.cert.Subject.CommonName, device.Uuid)
-	require.Less(t, lastSeen, device.LastSeen)
+	assert.Equal(t, tc.cert.Subject.CommonName, device.Uuid)
+	assert.Less(t, lastSeen, device.LastSeen)
+}
+
+func TestCheckIn(t *testing.T) {
+	apps := "a,b,c"
+	hash := "abcd"
+	tag := "tag"
+	target := "target"
+	tc := NewTestClient(t)
+	deviceBytes := tc.GET(
+		"/device", 200, "x-ats-dockerapps", apps, "x-ats-ostreehash", hash, "x-ats-tags", tag, "x-ats-target", target)
+
+	var d *storage.Device
+	require.Nil(t, json.Unmarshal(deviceBytes, &d))
+	assert.Equal(t, apps, d.Apps)
+	assert.Equal(t, hash, d.OstreeHash)
+	assert.Equal(t, tag, d.Tag)
+	assert.Equal(t, target, d.TargetName)
+
+	d, err := tc.gw.DeviceGet(d.Uuid)
+	require.Nil(t, err)
+	assert.Equal(t, apps, d.Apps)
+	assert.Equal(t, hash, d.OstreeHash)
+	assert.Equal(t, tag, d.Tag)
+	assert.Equal(t, target, d.TargetName)
+
+	// Check that fields are not erased on a partial update
+	tag = "switch"
+	apps = "a,b,d"
+	_ = tc.GET("/device", 200, "x-ats-dockerapps", apps, "x-ats-tags", tag)
+
+	d, err = tc.gw.DeviceGet(d.Uuid)
+	require.Nil(t, err)
+	assert.Equal(t, apps, d.Apps)
+	assert.Equal(t, hash, d.OstreeHash)
+	assert.Equal(t, tag, d.Tag)
+	assert.Equal(t, target, d.TargetName)
 }

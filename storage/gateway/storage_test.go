@@ -73,7 +73,7 @@ func TestStorage(t *testing.T) {
 	require.Equal(t, d.IsProd, d2.IsProd)
 
 	time.Sleep(time.Second)
-	require.Nil(t, d2.CheckIn("target", "tag", "hash", []string{}))
+	require.Nil(t, d2.CheckIn("target", "tag", "hash", ""))
 	d2, err = s.DeviceGet(uuid)
 	require.Nil(t, err)
 	require.Less(t, d.LastSeen, d2.LastSeen)
@@ -207,7 +207,7 @@ func Benchmark_CheckIn(b *testing.B) {
 	b.StartTimer()
 	for range 100000 {
 		deviceIdx := rand.Intn(len(devices) - 1)
-		require.Nil(b, devices[deviceIdx].CheckIn("target", "tag", "hash", []string{}))
+		require.Nil(b, devices[deviceIdx].CheckIn("target", "tag", "hash", ""))
 	}
 	b.StopTimer()
 }
