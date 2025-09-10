@@ -159,8 +159,8 @@ type stmtDeviceCreate storage.DbStmt
 
 func (s *stmtDeviceCreate) Init(db storage.DbHandle) (err error) {
 	s.Stmt, err = db.Prepare("DeviceCreate", `
-		INSERT INTO devices(uuid, pubkey, created_at, last_seen, is_prod, update_name, tag, target_name, ostree_hash, deleted)
-		VALUES (?, ?, ?, ?, ?, "", "", "", "", false)`,
+		INSERT INTO devices(uuid, pubkey, created_at, last_seen, is_prod, deleted)
+		VALUES (?, ?, ?, ?, ?, false)`,
 	)
 	return
 }
