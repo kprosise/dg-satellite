@@ -1,0 +1,20 @@
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: BSD-3-Clause-Clear
+
+package gateway
+
+import (
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+)
+
+// @Summary Get server side information on device
+// @Produce json
+// @Success 200 {object} Device
+// @Router  /device [get]
+func (handlers) deviceGet(c echo.Context) error {
+	ctx := c.Request().Context()
+	d := CtxGetDevice(ctx)
+	return c.JSON(http.StatusOK, d)
+}
