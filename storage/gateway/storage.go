@@ -32,9 +32,11 @@ const (
 	CertsTlsPemFile = storage.CertsTlsPemFile
 
 	// Per device files/dirs
-	AktomlFile   = storage.AktomlFile
-	HwInfoFile   = storage.HwInfoFile
-	NetInfoFile  = storage.NetInfoFile
+	AktomlFile  = storage.AktomlFile
+	HwInfoFile  = storage.HwInfoFile
+	NetInfoFile = storage.NetInfoFile
+
+	EventsPrefix = storage.EventsPrefix
 	StatesPrefix = storage.StatesPrefix
 )
 
