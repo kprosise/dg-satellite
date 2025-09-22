@@ -5,6 +5,7 @@ package gateway
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/foundriesio/dg-satellite/server"
 	storage "github.com/foundriesio/dg-satellite/storage/gateway"
@@ -24,6 +25,7 @@ var (
 func RegisterHandlers(e *echo.Echo, storage *storage.Storage) {
 	h := handlers{storage: storage}
 	e.Use(h.authDevice)
+	e.Use(middleware.BodyLimit("100K")) // After TLS authentication but before we read headers.
 	e.Use(h.checkinDevice)
 	e.POST("/apps-states", h.appsStatesInfo)
 	e.GET("/device", h.deviceGet)

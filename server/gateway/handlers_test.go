@@ -196,6 +196,9 @@ func TestInfo(t *testing.T) {
 	_ = tc.POST("/apps-states", 200, stInfo1)
 	_ = tc.POST("/apps-states", 400, stInfoBad)
 
+	aboveLimit := string(make([]byte, 100*1024+1)) // 100KB of zeroes + one byte
+	_ = tc.PUT("/system_info/config", 413, aboveLimit)
+
 	data, err := tc.fs.Devices.ReadFile(tc.uuid, storage.AktomlFile)
 	assert.Nil(t, err)
 	assert.Equal(t, akInfo, data)
