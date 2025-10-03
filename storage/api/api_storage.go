@@ -62,6 +62,7 @@ type Device struct {
 	OstreeHash string   `json:"ostree-hash"`
 	PubKey     string   `json:"pubkey"`
 	Tag        string   `json:"tag"`
+	GroupName  string   `json:"group-name"`
 	UpdateName string   `json:"update-name"`
 
 	Aktoml  string `json:"aktualizr-toml"`
@@ -82,13 +83,18 @@ type Storage struct {
 
 	stmtDeviceGet       stmtDeviceGet
 	stmtDeviceList      map[OrderBy]stmtDeviceList
+	stmtDeviceSetGroup  stmtDeviceSetGroup
 	stmtDeviceSetUpdate stmtDeviceSetUpdate
 }
 
 func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
 	handle := Storage{db: db, fs: fs}
 
-	if err := db.InitStmt(&handle.stmtDeviceGet, &handle.stmtDeviceSetUpdate); err != nil {
+	if err := db.InitStmt(
+		&handle.stmtDeviceGet,
+		&handle.stmtDeviceSetGroup,
+		&handle.stmtDeviceSetUpdate,
+	); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +131,7 @@ func (s Storage) DeviceGet(uuid string) (*Device, error) {
 	d := Device{storage: s, DeviceListItem: DeviceListItem{Uuid: uuid}}
 	var apps string
 	if err := s.stmtDeviceGet.run(
-		uuid, &d.CreatedAt, &d.LastSeen, &d.PubKey, &d.UpdateName, &d.Tag, &d.Target, &d.OstreeHash, &apps, &d.IsProd,
+		uuid, &d.CreatedAt, &d.LastSeen, &d.PubKey, &d.GroupName, &d.UpdateName, &d.Tag, &d.Target, &d.OstreeHash, &apps, &d.IsProd,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			err = nil
@@ -191,6 +197,10 @@ func (s Storage) SaveRollout(tag, updateName, rolloutName string, isProd bool, r
 	}
 }
 
+func (s Storage) SetGroupName(groupName string, uuids []string) error {
+	return s.stmtDeviceSetGroup.run(groupName, uuids)
+}
+
 func (s Storage) SetUpdateName(updateName string, uuids, groups []string) error {
 	return s.stmtDeviceSetUpdate.run(updateName, uuids, groups)
 }
@@ -200,7 +210,7 @@ type stmtDeviceGet storage.DbStmt
 func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceGet", `
 		SELECT
-			created_at, last_seen, pubkey, update_name, tag, target_name, ostree_hash, apps, is_prod
+			created_at, last_seen, pubkey, group_name, update_name, tag, target_name, ostree_hash, apps, is_prod
 		FROM devices
 		WHERE uuid = ? AND deleted=false`,
 	)
@@ -210,10 +220,11 @@ func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 func (s *stmtDeviceGet) run(
 	uuid string,
 	createdAt, lastSeen *int64,
-	pubkey, updateName, tag, targetName, ostreeHash, apps *string,
+	pubkey, groupName, updateName, tag, targetName, ostreeHash, apps *string,
 	isProd *bool,
 ) error {
-	return s.Stmt.QueryRow(uuid).Scan(createdAt, lastSeen, pubkey, updateName, tag, targetName, ostreeHash, apps, isProd)
+	return s.Stmt.QueryRow(uuid).Scan(
+		createdAt, lastSeen, pubkey, groupName, updateName, tag, targetName, ostreeHash, apps, isProd)
 }
 
 type stmtDeviceList storage.DbStmt
@@ -245,6 +256,26 @@ func (s *stmtDeviceList) run(limit, offset int, dl *[]DeviceListItem) error {
 		}
 	}
 	return nil
+}
+
+type stmtDeviceSetGroup storage.DbStmt
+
+func (s *stmtDeviceSetGroup) Init(db storage.DbHandle) (err error) {
+	s.Stmt, err = db.Prepare("apiDeviceSetGroupName", `
+		UPDATE devices
+		SET group_name=?
+		WHERE uuid IN (SELECT value from json_each(?))`,
+	)
+	return
+}
+
+func (s *stmtDeviceSetGroup) run(groupName string, uuids []string) error {
+	uuidsStr, err := json.Marshal(uuids)
+	if err != nil {
+		return fmt.Errorf("unexpected error marshalling UUIDs to JSON: %w", err)
+	}
+	_, err = s.Stmt.Exec(groupName, uuidsStr)
+	return err
 }
 
 type stmtDeviceSetUpdate storage.DbStmt

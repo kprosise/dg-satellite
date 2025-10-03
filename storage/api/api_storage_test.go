@@ -46,6 +46,7 @@ func TestStorage(t *testing.T) {
 	_, err = dg.DeviceCreate("uuid-2", "pubkey-value-2", false)
 	require.Nil(t, err)
 
+	require.Nil(t, s.SetGroupName("group137", []string{"uuid-1"}))
 	require.Nil(t, s.SetUpdateName("update42", []string{"uuid-1", "uuid-2"}, nil))
 
 	opts.Limit = 2
@@ -67,6 +68,7 @@ func TestStorage(t *testing.T) {
 	require.False(t, d.IsProd)
 	require.Equal(t, "", d.OstreeHash)
 	require.Equal(t, "pubkey-value-1", d.PubKey)
+	require.Equal(t, "group137", d.GroupName)
 	require.Equal(t, "update42", d.UpdateName)
 	require.Equal(t, "aktoml content", d.Aktoml)
 }

@@ -4,7 +4,9 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -40,11 +42,39 @@ func (c testClient) Do(req *http.Request) *httptest.ResponseRecorder {
 	return rec
 }
 
-func (c testClient) GET(resource string, status int) []byte {
+func (c testClient) GET(resource string, status int, headers ...string) []byte {
 	req := httptest.NewRequest(http.MethodGet, resource, nil)
+	c.marshalHeaders(headers, req)
 	rec := c.Do(req)
 	require.Equal(c.t, status, rec.Code)
 	return rec.Body.Bytes()
+}
+
+func (c testClient) PUT(resource string, status int, data any, headers ...string) []byte {
+	req := httptest.NewRequest(http.MethodPut, resource, c.marshalBody(data))
+	c.marshalHeaders(headers, req)
+	rec := c.Do(req)
+	require.Equal(c.t, status, rec.Code)
+	return rec.Body.Bytes()
+}
+
+func (c testClient) marshalHeaders(headers []string, req *http.Request) {
+	require.Zero(c.t, len(headers)%2, "Headers must be a sequence of names and values - even number")
+	for i := 0; i < len(headers)/2; i++ {
+		req.Header.Add(headers[i*2], headers[i*2+1])
+	}
+}
+
+func (c testClient) marshalBody(data any) io.Reader {
+	if s, ok := data.(string); ok {
+		return strings.NewReader(s)
+	} else if b, ok := data.([]byte); ok {
+		return bytes.NewReader(b)
+	} else {
+		b, err := json.Marshal(data)
+		require.Nil(c.t, err)
+		return bytes.NewReader(b)
+	}
 }
 
 func NewTestClient(t *testing.T) *testClient {
@@ -220,4 +250,60 @@ func TestApiRolloutGet(t *testing.T) {
 	tc.GET("/updates/ci/tag2/update1/rollouts/rollout1", 404) // tag not exists
 	data = tc.GET("/updates/prod/tag/update/rollouts/rollout", 200)
 	assert.Equal(t, `{"uuids":["uh"],"groups":["oh"]}`, s(data))
+}
+
+func TestApiRolloutPut(t *testing.T) {
+	tc := NewTestClient(t)
+	tc.PUT("/updates/ci/tag/update/rollouts/rolling?deny-has-scope=1", 403, "{}")
+	tc.PUT("/updates/prod/tag/update/rollouts/stones?deny-has-scope=1", 403, "{}")
+
+	tc.PUT("/updates/non-prod/tag/update/rollouts/rocks", 404, "{}")
+
+	tc.PUT("/updates/prod/tag/update/rollouts/rocks", 400, "{")
+	tc.PUT("/updates/prod/tag/update/rollouts/rocks", 400, "{}")
+
+	_, err := tc.gw.DeviceCreate("ci1", "pubkey1", false)
+	require.Nil(t, err)
+	_, err = tc.gw.DeviceCreate("ci2", "pubkey1", false)
+	require.Nil(t, err)
+	_, err = tc.gw.DeviceCreate("prod1", "pubkey2", true)
+	require.Nil(t, err)
+	_, err = tc.gw.DeviceCreate("prod2", "pubkey2", true)
+	require.Nil(t, err)
+	_, err = tc.gw.DeviceCreate("prod3", "pubkey2", true)
+	require.Nil(t, err)
+
+	require.Nil(t, tc.api.SetGroupName("grp1", []string{"prod3"}))
+
+	tc.PUT("/updates/ci/tag1/update1/rollouts/rocks", 202,
+		`{"uuids":["ci1","ci2"]}`, "content-type", "application/json")
+	tc.PUT("/updates/ci/tag1/update1/rollouts/rocks", 409,
+		`{"uuids":["ci1"]}`, "content-type", "application/json")
+	tc.PUT("/updates/prod/tag2/update2/rollouts/rocks", 202,
+		`{"uuids":["prod2"],"groups":["grp1"]}`, "content-type", "application/json")
+
+	s := func(data []byte) string {
+		return strings.TrimSpace(string(data))
+	}
+
+	data := tc.GET("/updates/ci/tag1/update1/rollouts/rocks", 200)
+	assert.Equal(t, `{"uuids":["ci1","ci2"]}`, s(data))
+	data = tc.GET("/updates/prod/tag2/update2/rollouts/rocks", 200)
+	assert.Equal(t, `{"uuids":["prod2"],"groups":["grp1"]}`, s(data))
+	dev, err := tc.api.DeviceGet("ci1")
+	assert.Nil(t, err)
+	assert.Equal(t, "update1", dev.UpdateName)
+	dev, err = tc.api.DeviceGet("ci2")
+	assert.Nil(t, err)
+	assert.Equal(t, "update1", dev.UpdateName)
+	dev, err = tc.api.DeviceGet("prod1")
+	assert.Nil(t, err)
+	assert.Equal(t, "", dev.UpdateName)
+	dev, err = tc.api.DeviceGet("prod2")
+	assert.Nil(t, err)
+	assert.Equal(t, "update2", dev.UpdateName)
+	dev, err = tc.api.DeviceGet("prod3")
+	assert.Nil(t, err)
+	assert.Equal(t, "update2", dev.UpdateName)
+
 }

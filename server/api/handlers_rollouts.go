@@ -98,7 +98,10 @@ func (h *handlers) rolloutPut(c echo.Context) error {
 	rolloutName := c.Param("rollout")
 	var rollout Rollout
 	if err := c.Bind(&rollout); err != nil {
-		return EchoError(c, err, http.StatusBadRequest, "Bad Request")
+		return EchoError(c, err, http.StatusBadRequest, "Bad JSON body")
+	}
+	if len(rollout.Uuids) == 0 && len(rollout.Groups) == 0 {
+		return c.String(http.StatusBadRequest, "Either uuids or groups must be set")
 	}
 
 	// Check if rollout with this name already exists
@@ -109,6 +112,7 @@ func (h *handlers) rolloutPut(c echo.Context) error {
 	} else {
 		return EchoError(c, err, http.StatusConflict, "Rollout with this name already exists")
 	}
+	// TODO: Check that a tag for each device matches the rollout tag???
 
 	// TODO: This is not atomic. Improvement would involve a daemon goroutine watching for data corruption.
 	if err := h.storage.SaveRollout(tag, updateName, rolloutName, isProd, rollout); err != nil {
