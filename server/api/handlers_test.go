@@ -36,7 +36,7 @@ type testClient struct {
 }
 
 func (c testClient) Do(req *http.Request) *httptest.ResponseRecorder {
-	req = req.WithContext(context.CtxWithLog(req.Context(), c.log))
+	req = req.WithContext(CtxWithLog(req.Context(), c.log))
 	rec := httptest.NewRecorder()
 	c.e.ServeHTTP(rec, req)
 	return rec
@@ -194,6 +194,10 @@ func TestApiUpdateList(t *testing.T) {
 	assert.Equal(t, "{}", s(data))
 	data = tc.GET("/updates/prod/tag4", 200)
 	assert.Equal(t, `{"tag4":["update42"]}`, s(data))
+
+	// Synthetic tag validation - create a bad tag on disk - request must still return 404
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("bad^tag", "update42", "rollout1", "foo"))
+	tc.GET("/updates/prod/bad^tag", 404)
 }
 
 func TestApiRolloutList(t *testing.T) {
@@ -224,6 +228,12 @@ func TestApiRolloutList(t *testing.T) {
 	assert.Equal(t, `["rollout4"]`, s(data))
 	data = tc.GET("/updates/ci/tag2/update2/rollouts", 200) // tag not exists
 	assert.Equal(t, "[]", s(data))
+
+	// Synthetic tag/update validation - create a bad tag/update on disk - request must still return 404
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("bad^tag", "update42", "rollout1", "foo"))
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("tag", "update=bad", "rollout1", "foo"))
+	tc.GET("/updates/prod/bad^tag/update42/rollouts", 404)
+	tc.GET("/updates/prod/tag/update=bad/rollouts", 404)
 }
 
 func TestApiRolloutGet(t *testing.T) {
@@ -250,6 +260,14 @@ func TestApiRolloutGet(t *testing.T) {
 	tc.GET("/updates/ci/tag2/update1/rollouts/rollout1", 404) // tag not exists
 	data = tc.GET("/updates/prod/tag/update/rollouts/rollout", 200)
 	assert.Equal(t, `{"uuids":["uh"],"groups":["oh"]}`, s(data))
+
+	// Synthetic tag/update/rollout validation - create a bad tag/update/rollout on disk - request must still return 404
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("bad^tag", "update42", "rollout1", "foo"))
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("tag", "update=bad", "rollout1", "foo"))
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("tag", "update", "omg+", "foo"))
+	tc.GET("/updates/prod/bad^tag/update42/rollouts/rollout1", 404)
+	tc.GET("/updates/prod/tag/update=bad/rollouts/rollout1", 404)
+	tc.GET("/updates/prod/tag/update/rollouts/omg+", 404)
 }
 
 func TestApiRolloutPut(t *testing.T) {
@@ -262,24 +280,41 @@ func TestApiRolloutPut(t *testing.T) {
 	tc.PUT("/updates/prod/tag/update/rollouts/rocks", 400, "{")
 	tc.PUT("/updates/prod/tag/update/rollouts/rocks", 400, "{}")
 
-	_, err := tc.gw.DeviceCreate("ci1", "pubkey1", false)
+	require.Nil(t, tc.fs.Updates.Ci.Ostree.WriteFile("tag1", "update1", "foo", "bar"))
+	require.Nil(t, tc.fs.Updates.Prod.Ostree.WriteFile("tag2", "update2", "foo", "bar"))
+	d, err := tc.gw.DeviceCreate("ci1", "pubkey1", false)
 	require.Nil(t, err)
-	_, err = tc.gw.DeviceCreate("ci2", "pubkey1", false)
+	require.Nil(t, d.CheckIn("", "tag1", "", ""))
+	d, err = tc.gw.DeviceCreate("ci2", "pubkey1", false)
 	require.Nil(t, err)
-	_, err = tc.gw.DeviceCreate("prod1", "pubkey2", true)
+	require.Nil(t, d.CheckIn("", "tag1", "", ""))
+	d, err = tc.gw.DeviceCreate("ci3", "pubkey1", false)
 	require.Nil(t, err)
-	_, err = tc.gw.DeviceCreate("prod2", "pubkey2", true)
+	require.Nil(t, d.CheckIn("", "tag2", "", ""))
+	d, err = tc.gw.DeviceCreate("prod1", "pubkey2", true)
 	require.Nil(t, err)
-	_, err = tc.gw.DeviceCreate("prod3", "pubkey2", true)
+	require.Nil(t, d.CheckIn("", "tag2", "", ""))
+	d, err = tc.gw.DeviceCreate("prod2", "pubkey2", true)
 	require.Nil(t, err)
+	require.Nil(t, d.CheckIn("", "tag2", "", ""))
+	d, err = tc.gw.DeviceCreate("prod3", "pubkey2", true)
+	require.Nil(t, err)
+	require.Nil(t, d.CheckIn("", "tag2", "", ""))
+	d, err = tc.gw.DeviceCreate("prod4", "pubkey2", true)
+	require.Nil(t, err)
+	require.Nil(t, d.CheckIn("", "tag3", "", ""))
 
-	require.Nil(t, tc.api.SetGroupName("grp1", []string{"prod3"}))
+	require.Nil(t, tc.api.SetGroupName("grp1", []string{"prod3", "prod4"}))
 
 	tc.PUT("/updates/ci/tag1/update1/rollouts/rocks", 202,
+		`{"uuids":["ci1","ci2","ci3"]}`, "content-type", "application/json")
+	tc.PUT("/updates/ci/tag1/update2/rollouts/rocks", 404,
 		`{"uuids":["ci1","ci2"]}`, "content-type", "application/json")
 	tc.PUT("/updates/ci/tag1/update1/rollouts/rocks", 409,
 		`{"uuids":["ci1"]}`, "content-type", "application/json")
 	tc.PUT("/updates/prod/tag2/update2/rollouts/rocks", 202,
+		`{"uuids":["prod2"],"groups":["grp1"]}`, "content-type", "application/json")
+	tc.PUT("/updates/prod/tag1/update1/rollouts/rocks", 404,
 		`{"uuids":["prod2"],"groups":["grp1"]}`, "content-type", "application/json")
 
 	s := func(data []byte) string {
@@ -287,9 +322,9 @@ func TestApiRolloutPut(t *testing.T) {
 	}
 
 	data := tc.GET("/updates/ci/tag1/update1/rollouts/rocks", 200)
-	assert.Equal(t, `{"uuids":["ci1","ci2"]}`, s(data))
+	assert.Equal(t, `{"uuids":["ci1","ci2","ci3"],"effective-uuids":["ci1","ci2"]}`, s(data))
 	data = tc.GET("/updates/prod/tag2/update2/rollouts/rocks", 200)
-	assert.Equal(t, `{"uuids":["prod2"],"groups":["grp1"]}`, s(data))
+	assert.Equal(t, `{"uuids":["prod2"],"groups":["grp1"],"effective-uuids":["prod2","prod3"]}`, s(data))
 	dev, err := tc.api.DeviceGet("ci1")
 	assert.Nil(t, err)
 	assert.Equal(t, "update1", dev.UpdateName)
@@ -306,4 +341,11 @@ func TestApiRolloutPut(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "update2", dev.UpdateName)
 
+	// Synthetic tag/update/rollout validation - create a bad tag/update/rollout on disk - request must still return 404
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("bad^tag", "update42", "rollout1", "foo"))
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("tag", "update=bad", "rollout1", "foo"))
+	require.Nil(t, tc.fs.Updates.Prod.Rollouts.WriteFile("tag", "update", "omg+", "foo"))
+	tc.PUT("/updates/prod/bad^tag/update42/rollouts/gogogo", 404, "foo")
+	tc.PUT("/updates/prod/tag/update=bad/rollouts/gogogo", 404, "foo")
+	tc.PUT("/updates/prod/tag/update/rollouts/omg+", 404, "foo")
 }
