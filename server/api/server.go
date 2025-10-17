@@ -5,6 +5,7 @@ package api
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/foundriesio/dg-satellite/auth"
 	"github.com/foundriesio/dg-satellite/server"
@@ -22,5 +23,28 @@ func NewServer(ctx Context, db *storage.DbHandle, fs *storage.FsHandle, port uin
 	e := server.NewEchoServer()
 	srv := server.NewServer(ctx, e, serverName, port, nil)
 	RegisterHandlers(e, strg, authFunc)
-	return srv, nil
+	return &apiServer{server: srv, daemons: NewDaemons(ctx, strg)}, nil
+}
+
+type apiServer struct {
+	server  server.Server
+	daemons *daemons
+}
+
+func (s apiServer) Start(quit chan error) {
+	s.daemons.Start()
+	s.server.Start(quit)
+}
+
+func (s apiServer) Shutdown(timeout time.Duration) {
+	s.daemons.Shutdown()
+	s.server.Shutdown(timeout)
+}
+
+func (s apiServer) GetAddress() string {
+	return s.server.GetAddress()
+}
+
+func (s apiServer) GetDnsName() string {
+	return s.server.GetDnsName()
 }
