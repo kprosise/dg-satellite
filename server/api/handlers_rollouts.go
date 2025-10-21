@@ -125,7 +125,7 @@ func (h *handlers) rolloutPut(c echo.Context) error {
 		return EchoError(c, err, http.StatusInternalServerError, "Failed to save rollout to disk")
 	}
 	// TODO: This may be slow.  Consider spawning a goroutine, probably in a worker pool.
-	if rollout.Effect, err = h.storage.SetUpdateName(tag, updateName, rollout.Uuids, rollout.Groups); err != nil {
+	if rollout.Effect, err = h.storage.SetUpdateName(tag, updateName, isProd, rollout.Uuids, rollout.Groups); err != nil {
 		return EchoError(c, err, http.StatusInternalServerError, "Failed to update devices for rollout")
 	}
 	if err = h.storage.SaveRollout(tag, updateName, rolloutName, isProd, rollout); err != nil {

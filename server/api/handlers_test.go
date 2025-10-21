@@ -354,6 +354,9 @@ func TestApiRolloutPut(t *testing.T) {
 	d, err = tc.gw.DeviceCreate("ci3", "pubkey1", false)
 	require.Nil(t, err)
 	require.Nil(t, d.CheckIn("", "tag2", "", ""))
+	d, err = tc.gw.DeviceCreate("ci4", "pubkey1", false)
+	require.Nil(t, err)
+	require.Nil(t, d.CheckIn("", "tag2", "", ""))
 	d, err = tc.gw.DeviceCreate("prod1", "pubkey2", true)
 	require.Nil(t, err)
 	require.Nil(t, d.CheckIn("", "tag2", "", ""))
@@ -367,7 +370,7 @@ func TestApiRolloutPut(t *testing.T) {
 	require.Nil(t, err)
 	require.Nil(t, d.CheckIn("", "tag3", "", ""))
 
-	require.Nil(t, tc.api.SetGroupName("grp1", []string{"prod3", "prod4"}))
+	require.Nil(t, tc.api.SetGroupName("grp1", []string{"prod3", "prod4", "ci4"}))
 
 	tc.PUT("/updates/ci/tag1/update1/rollouts/rocks", 202,
 		`{"uuids":["ci1","ci2","ci3"]}`, "content-type", "application/json")

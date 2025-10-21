@@ -202,8 +202,8 @@ func (s Storage) SetGroupName(groupName string, uuids []string) error {
 	return s.stmtDeviceSetGroup.run(groupName, uuids)
 }
 
-func (s Storage) SetUpdateName(tag, updateName string, uuids, groups []string) (effectiveUuids []string, err error) {
-	err = s.stmtDeviceSetUpdate.run(tag, updateName, uuids, groups, &effectiveUuids)
+func (s Storage) SetUpdateName(tag, updateName string, isProd bool, uuids, groups []string) (effectiveUuids []string, err error) {
+	err = s.stmtDeviceSetUpdate.run(tag, updateName, isProd, uuids, groups, &effectiveUuids)
 	return
 }
 
@@ -286,7 +286,7 @@ func (s *stmtDeviceSetUpdate) Init(db storage.DbHandle) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceSetUpdateName", `
 		UPDATE devices
 		SET update_name=?
-		WHERE tag=? AND (
+		WHERE tag=? AND is_prod=? AND (
 			uuid IN (SELECT value from json_each(?))
 			OR
 			group_name IN (SELECT value from json_each(?))
@@ -295,7 +295,7 @@ func (s *stmtDeviceSetUpdate) Init(db storage.DbHandle) (err error) {
 	return
 }
 
-func (s *stmtDeviceSetUpdate) run(tag, updateName string, uuids, groups []string, effectiveUuids *[]string) error {
+func (s *stmtDeviceSetUpdate) run(tag, updateName string, isProd bool, uuids, groups []string, effectiveUuids *[]string) error {
 	uuidsStr, err := json.Marshal(uuids)
 	if err != nil {
 		return fmt.Errorf("unexpected error marshalling UUIDs to JSON: %w", err)
@@ -304,7 +304,7 @@ func (s *stmtDeviceSetUpdate) run(tag, updateName string, uuids, groups []string
 	if err != nil {
 		return fmt.Errorf("unexpected error marshalling groups to JSON: %w", err)
 	}
-	if rows, err := s.Stmt.Query(updateName, tag, uuidsStr, groupsStr); err != nil {
+	if rows, err := s.Stmt.Query(updateName, tag, isProd, uuidsStr, groupsStr); err != nil {
 		return err
 	} else {
 		var resUuid string
