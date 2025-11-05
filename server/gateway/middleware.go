@@ -22,6 +22,9 @@ var (
 func (h handlers) authDevice(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		req := c.Request()
+		if len(req.TLS.PeerCertificates) == 0 {
+			return c.String(http.StatusForbidden, "no client certificate provided")
+		}
 		cert := req.TLS.PeerCertificates[0]
 		uuid := cert.Subject.CommonName
 		ctx := req.Context()

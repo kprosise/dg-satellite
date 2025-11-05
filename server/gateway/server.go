@@ -42,7 +42,7 @@ func loadTlsConfig(fs *storage.FsHandle) (*tls.Config, error) {
 
 	cfg := &tls.Config{
 		Certificates: []tls.Certificate{kp},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth:   tls.VerifyClientCertIfGiven,
 		MinVersion:   tls.VersionTLS12,
 		ClientCAs:    caPool,
 	}
