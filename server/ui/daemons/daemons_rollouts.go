@@ -1,12 +1,14 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-package api
+package daemons
 
 import (
 	"errors"
 	"os"
 	"time"
+
+	"github.com/foundriesio/dg-satellite/context"
 )
 
 func (d *daemons) rolloutWatchdog(isProd bool) daemonFunc {
@@ -14,7 +16,7 @@ func (d *daemons) rolloutWatchdog(isProd bool) daemonFunc {
 	// API handlers have 5 minutes to write to the file after it was moved.
 	// That is more than enough for any in-flight writes to get to the disk.
 	return func(stop chan bool) {
-		log := CtxGetLog(d.context)
+		log := context.CtxGetLog(d.context)
 		firstRun := true
 		for {
 			processed := d.processJournal(isProd)
@@ -37,7 +39,7 @@ func (d *daemons) rolloutWatchdog(isProd bool) daemonFunc {
 }
 
 func (d *daemons) processJournal(isProd bool) (success bool) {
-	log := CtxGetLog(d.context)
+	log := context.CtxGetLog(d.context)
 	success = true
 	for line, err := range d.storage.ReadRolloutJournal(isProd) {
 		if err != nil {

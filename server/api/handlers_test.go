@@ -22,6 +22,7 @@ import (
 	"github.com/foundriesio/dg-satellite/auth"
 	"github.com/foundriesio/dg-satellite/context"
 	"github.com/foundriesio/dg-satellite/server"
+	"github.com/foundriesio/dg-satellite/server/ui/daemons"
 	"github.com/foundriesio/dg-satellite/storage"
 	apiStorage "github.com/foundriesio/dg-satellite/storage/api"
 	gatewayStorage "github.com/foundriesio/dg-satellite/storage/gateway"
@@ -447,7 +448,7 @@ func TestApiRolloutPut(t *testing.T) {
 
 func TestApiRolloutDaemon(t *testing.T) {
 	tc := NewTestClient(t)
-	daemons := NewDaemons(tc.ctx, tc.api, WithRolloverInterval(20*time.Millisecond))
+	daemons := daemons.New(tc.ctx, tc.api, daemons.WithRolloverInterval(20*time.Millisecond))
 	daemons.Start()
 	defer daemons.Shutdown()
 
