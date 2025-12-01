@@ -11,6 +11,17 @@ import (
 	"github.com/foundriesio/dg-satellite/context"
 )
 
+// WithRolloverInterval sets the rollout rollover interval
+func WithRolloverInterval(interval time.Duration) Option {
+	return func(d *daemons) {
+		d.rolloutOptions.interval = interval
+	}
+}
+
+type rolloutOptions struct {
+	interval time.Duration
+}
+
 func (d *daemons) rolloutWatchdog(isProd bool) daemonFunc {
 	// Watch for a file once every 5 minutes.
 	// API handlers have 5 minutes to write to the file after it was moved.

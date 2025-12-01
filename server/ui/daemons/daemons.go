@@ -12,18 +12,7 @@ import (
 
 type daemonFunc func(stop chan bool)
 
-type rolloutOptions struct {
-	interval time.Duration
-}
-
 type Option func(*daemons)
-
-// WithRolloverInterval sets the rollout rollover interval
-func WithRolloverInterval(interval time.Duration) Option {
-	return func(d *daemons) {
-		d.rolloutOptions.interval = interval
-	}
-}
 
 type daemons struct {
 	context context.Context
