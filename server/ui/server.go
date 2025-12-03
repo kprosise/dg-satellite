@@ -13,6 +13,7 @@ import (
 	"github.com/foundriesio/dg-satellite/server"
 	apiHandlers "github.com/foundriesio/dg-satellite/server/ui/api"
 	"github.com/foundriesio/dg-satellite/server/ui/daemons"
+	webHandlers "github.com/foundriesio/dg-satellite/server/ui/web"
 	"github.com/foundriesio/dg-satellite/storage"
 	"github.com/foundriesio/dg-satellite/storage/api"
 	"github.com/foundriesio/dg-satellite/storage/users"
@@ -44,6 +45,7 @@ func NewServer(ctx context.Context, db *storage.DbHandle, fs *storage.FsHandle, 
 
 	srv := server.NewServer(ctx, e, serverName, port, nil)
 	apiHandlers.RegisterHandlers(e, strg, provider)
+	webHandlers.RegisterHandlers(e, users, provider)
 	return &apiServer{server: srv, daemons: daemons.New(ctx, strg)}, nil
 }
 
