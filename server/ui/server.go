@@ -6,6 +6,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/foundriesio/dg-satellite/auth"
@@ -14,6 +15,7 @@ import (
 	"github.com/foundriesio/dg-satellite/server/ui/daemons"
 	"github.com/foundriesio/dg-satellite/storage"
 	"github.com/foundriesio/dg-satellite/storage/api"
+	"github.com/foundriesio/dg-satellite/storage/users"
 )
 
 const serverName = "rest-api"
@@ -28,7 +30,18 @@ func NewServer(ctx context.Context, db *storage.DbHandle, fs *storage.FsHandle, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to load %s storage: %w", serverName, err)
 	}
+	users, err := users.NewStorage(db, fs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize users storage: %w", err)
+	}
 	e := server.NewEchoServer()
+
+	provider, err := auth.NewProvider(e, db, fs, users)
+	if err != nil {
+		return nil, err
+	}
+	slog.Info("Using authentication provider", "name", provider.Name())
+
 	srv := server.NewServer(ctx, e, serverName, port, nil)
 	apiHandlers.RegisterHandlers(e, strg, authFunc)
 	return &apiServer{server: srv, daemons: daemons.New(ctx, strg)}, nil
