@@ -90,7 +90,7 @@
                   <tbody>
                     {{range .Updates}}
                     <tr>
-                      <td>{{.}}</td>
+                      <td><a href="/devices/{{$.Device.Uuid}}/update/{{.}}">{{.}}</a></td>
                     </tr>
                     {{else}}
                     <tr>
