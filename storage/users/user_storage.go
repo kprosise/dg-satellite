@@ -55,6 +55,11 @@ type Storage struct {
 	stmtUserList      stmtUserList
 	stmtUserUpdate    stmtUserUpdate
 
+	stmtSessionCreate        stmtSessionCreate
+	stmtSessionDelete        stmtSessionDelete
+	stmtSessionDeleteExpired stmtSessionDeleteExpired
+	stmtSessionGet           stmtSessionGet
+
 	stmtTokenCreate        stmtTokenCreate
 	stmtTokenDelete        stmtTokenDelete
 	stmtTokenDeleteAll     stmtTokenDeleteAll
@@ -80,6 +85,10 @@ func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
 		&handle.stmtUserGetByName,
 		&handle.stmtUserList,
 		&handle.stmtUserUpdate,
+		&handle.stmtSessionCreate,
+		&handle.stmtSessionDelete,
+		&handle.stmtSessionDeleteExpired,
+		&handle.stmtSessionGet,
 		&handle.stmtTokenCreate,
 		&handle.stmtTokenDelete,
 		&handle.stmtTokenDeleteAll,
@@ -98,6 +107,11 @@ func (s Storage) RunGc() {
 	slog.Info("Running user token GC")
 	if err := s.stmtTokenDeleteExpired.run(now); err != nil {
 		slog.Error("Unable to run user token GC", "error", err)
+	}
+
+	slog.Info("Running user session GC")
+	if err := s.stmtSessionDeleteExpired.run(now); err != nil {
+		slog.Error("Unable to run user session GC", "error", err)
 	}
 }
 
