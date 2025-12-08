@@ -69,6 +69,38 @@ func createTables(db *sql.DB) error {
 			ostree_hash VARCHAR(80) DEFAULT "",
 			apps VARCHAR(2048) DEFAULT ""
 		) WITHOUT ROWID;
+
+		CREATE TABLE users (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			username       TEXT NOT NULL UNIQUE,
+			password       VARCHAR(128),
+			email          TEXT,
+			created_at     INT DEFAULT 0,
+			deleted        BOOL DEFAULT 0,
+			allowed_scopes INT DEFAULT 0
+		);
+
+		CREATE TABLE tokens (
+			public_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id        INT,
+			created_at     INT,
+			expires_at     INT,
+			description    VARCHAR(80),
+			scopes         INT,
+			value          VARCHAR(60) NOT NULL UNIQUE,
+
+			FOREIGN KEY(user_id) REFERENCES user(id)
+		);
+
+		CREATE TABLE session (
+			id             VARCHAR(64) NOT NULL PRIMARY KEY,
+			user_id        INT,
+			remote_ip      VARCHAR(39),
+			created_at     INT,
+			expires_at     INT,
+			scopes         INT,
+			FOREIGN KEY(user_id) REFERENCES user(id)
+		) WITHOUT ROWID;
 	`
 	if _, err := db.Exec(sqlStmt); err != nil {
 		return fmt.Errorf("unable to create devices db: %w", err)
