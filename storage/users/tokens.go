@@ -174,6 +174,21 @@ func (s *stmtTokenDeleteAll) run(u User) error {
 	return err
 }
 
+type stmtTokenDeleteExpired storage.DbStmt
+
+func (s *stmtTokenDeleteExpired) Init(db storage.DbHandle) (err error) {
+	s.Stmt, err = db.Prepare("tokenDeleteExpired", `
+		DELETE FROM tokens
+		WHERE expires_at < ?`,
+	)
+	return
+}
+
+func (s *stmtTokenDeleteExpired) run(before int64) error {
+	_, err := s.Stmt.Exec(before)
+	return err
+}
+
 type stmtTokenList storage.DbStmt
 
 func (s *stmtTokenList) Init(db storage.DbHandle) (err error) {

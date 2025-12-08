@@ -55,11 +55,12 @@ type Storage struct {
 	stmtUserList      stmtUserList
 	stmtUserUpdate    stmtUserUpdate
 
-	stmtTokenCreate    stmtTokenCreate
-	stmtTokenDelete    stmtTokenDelete
-	stmtTokenDeleteAll stmtTokenDeleteAll
-	stmtTokenList      stmtTokenList
-	stmtTokenLookup    stmtTokenLookup
+	stmtTokenCreate        stmtTokenCreate
+	stmtTokenDelete        stmtTokenDelete
+	stmtTokenDeleteAll     stmtTokenDeleteAll
+	stmtTokenDeleteExpired stmtTokenDeleteExpired
+	stmtTokenList          stmtTokenList
+	stmtTokenLookup        stmtTokenLookup
 }
 
 func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
@@ -82,6 +83,7 @@ func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
 		&handle.stmtTokenCreate,
 		&handle.stmtTokenDelete,
 		&handle.stmtTokenDeleteAll,
+		&handle.stmtTokenDeleteExpired,
 		&handle.stmtTokenList,
 		&handle.stmtTokenLookup,
 	); err != nil {
@@ -89,6 +91,14 @@ func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
 	}
 
 	return &handle, nil
+}
+
+func (s Storage) RunGc() {
+	now := time.Now().Unix()
+	slog.Info("Running user token GC")
+	if err := s.stmtTokenDeleteExpired.run(now); err != nil {
+		slog.Error("Unable to run user token GC", "error", err)
+	}
 }
 
 func (s Storage) Create(u *User) error {
