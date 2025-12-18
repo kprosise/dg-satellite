@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/foundriesio/dg-satellite/storage"
@@ -389,6 +390,7 @@ func (d Device) Updates() ([]string, error) {
 	for i, name := range names {
 		names[i] = name[len(storage.EventsPrefix)+1:]
 	}
+	slices.Reverse(names)
 	return names, nil
 }
 

@@ -305,13 +305,13 @@ func TestApiDeviceUpdateEvents(t *testing.T) {
 	require.Nil(t, json.Unmarshal(data, &updates))
 	require.Len(t, updates, 2)
 
-	data = tc.GET("/devices/test-device-1/updates/"+updates[1], 200)
+	data = tc.GET("/devices/test-device-1/updates/"+updates[0], 200)
 	require.Nil(t, json.Unmarshal(data, &events))
 	assert.Equal(t, "second", events[0].Event.Details)
 
-	data = tc.GET("/devices/test-device-1/updates/"+updates[0], 200)
+	data = tc.GET("/devices/test-device-1/updates/"+updates[1], 200)
 	require.Nil(t, json.Unmarshal(data, &events))
-	assert.Equal(t, "first", events[0].Event.Details)
+	assert.Equal(t, "first", events[1].Event.Details)
 
 	_ = tc.GET("/devices/test-device-1/updates/doesnoexist", 404)
 }
