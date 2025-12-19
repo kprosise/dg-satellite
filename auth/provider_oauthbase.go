@@ -31,10 +31,11 @@ type oauth2BaseProvider struct {
 
 	checkToken func(echo.Context, *oauth2.Token) (*users.User, error)
 
-	newUserScopes users.Scopes
-	oauthConfig   *oauth2.Config
-	users         *users.Storage
-	loginTip      string
+	newUserScopes  users.Scopes
+	oauthConfig    *oauth2.Config
+	users          *users.Storage
+	loginTip       string
+	sessionTimeout time.Duration
 }
 
 func (p oauth2BaseProvider) Name() string {
@@ -57,6 +58,7 @@ func (p *oauth2BaseProvider) configure(e *echo.Echo, usersStorage *users.Storage
 		return fmt.Errorf("unable to parse new user default scopes: %w", err)
 	}
 	p.users = usersStorage
+	p.sessionTimeout = time.Duration(cfg.SessionTimeoutHours) * time.Hour
 
 	e.GET(AuthLoginPath, p.handleLogin)
 	e.GET(AuthCallbackPath, p.handleOauthCallback)
@@ -171,7 +173,7 @@ func (p oauth2BaseProvider) handleOauthCallback(c echo.Context) error {
 		return err
 	}
 
-	expires := time.Now().Add(24 * 2 * time.Hour)
+	expires := time.Now().Add(p.sessionTimeout)
 	sessionId, err := user.CreateSession(c.RealIP(), expires.Unix(), user.AllowedScopes)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Could not create user session")
