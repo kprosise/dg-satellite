@@ -59,6 +59,8 @@ type DeviceListItem struct {
 	CreatedAt int64  `json:"created-at"`
 	LastSeen  int64  `json:"last-seen"`
 	Target    string `json:"target"`
+	Tag       string `json:"tag"`
+	GroupName string `json:"group-name"`
 	IsProd    bool   `json:"is-prod"`
 }
 
@@ -68,8 +70,6 @@ type Device struct {
 	Apps       []string `json:"apps"`
 	OstreeHash string   `json:"ostree-hash"`
 	PubKey     string   `json:"pubkey"`
-	Tag        string   `json:"tag"`
-	GroupName  string   `json:"group-name"`
 	UpdateName string   `json:"update-name"`
 
 	Aktoml  string `json:"aktualizr-toml"`
@@ -345,7 +345,7 @@ type stmtDeviceList storage.DbStmt
 func (s *stmtDeviceList) Init(db storage.DbHandle, orderBy string) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceList", fmt.Sprintf(`
 		SELECT
-			uuid, created_at, last_seen, target_name, is_prod
+			uuid, created_at, last_seen, target_name, tag, group_name, is_prod
 		FROM devices
 		WHERE deleted=false
 		ORDER BY %s LIMIT ? OFFSET ?`, orderBy),
@@ -364,7 +364,9 @@ func (s *stmtDeviceList) run(limit, offset int, dl *[]DeviceListItem) error {
 		}()
 		for rows.Next() {
 			var d DeviceListItem
-			if err = rows.Scan(&d.Uuid, &d.CreatedAt, &d.LastSeen, &d.Target, &d.IsProd); err != nil {
+			if err = rows.Scan(
+				&d.Uuid, &d.CreatedAt, &d.LastSeen, &d.Target, &d.Tag, &d.GroupName, &d.IsProd,
+			); err != nil {
 				return err
 			}
 			*dl = append(*dl, d)
