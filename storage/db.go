@@ -63,6 +63,7 @@ func createTables(db *sql.DB) error {
 			created_at INT DEFAULT 0,
 			last_seen INT DEFAULT 0,
 			tag VARCHAR(80) DEFAULT "",
+			labels JSONB(2048) DEFAULT "{}",
 			group_name VARCHAR(80) DEFAULT "",
 			update_name VARCHAR(80) DEFAULT "",
 			target_name VARCHAR(80) DEFAULT "",

@@ -16,6 +16,7 @@ import (
 )
 
 type (
+	Labels  map[string]string
 	OrderBy string
 
 	FsHandle = storage.FsHandle
@@ -62,6 +63,7 @@ type DeviceListItem struct {
 	Tag       string `json:"tag"`
 	GroupName string `json:"group-name"`
 	IsProd    bool   `json:"is-prod"`
+	Labels    Labels `json:"labels"`
 }
 
 type Device struct {
@@ -192,9 +194,16 @@ func (s Storage) DevicesList(opts DeviceListOpts) ([]DeviceListItem, error) {
 
 func (s Storage) DeviceGet(uuid string) (*Device, error) {
 	d := Device{storage: s, DeviceListItem: DeviceListItem{Uuid: uuid}}
-	var apps string
+	var (
+		err    error
+		apps   string
+		labels string
+	)
 	if err := s.stmtDeviceGet.run(
-		uuid, &d.CreatedAt, &d.LastSeen, &d.PubKey, &d.GroupName, &d.UpdateName, &d.Tag, &d.Target, &d.OstreeHash, &apps, &d.IsProd,
+		uuid,
+		&d.CreatedAt, &d.LastSeen,
+		&d.PubKey, &d.GroupName, &d.UpdateName, &d.Tag, &d.Target, &d.OstreeHash,
+		&apps, &labels, &d.IsProd,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			err = nil
@@ -206,8 +215,10 @@ func (s Storage) DeviceGet(uuid string) (*Device, error) {
 			d.Apps = append(d.Apps, v)
 		}
 	}
+	if err = json.Unmarshal([]byte(labels), &d.Labels); err != nil {
+		return nil, fmt.Errorf("failed to parse device labels: %w", err)
+	}
 
-	var err error
 	if d.Aktoml, err = s.fs.Devices.ReadFile(d.Uuid, storage.AktomlFile); err != nil {
 		return nil, err
 	}
@@ -323,7 +334,7 @@ type stmtDeviceGet storage.DbStmt
 func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceGet", `
 		SELECT
-			created_at, last_seen, pubkey, group_name, update_name, tag, target_name, ostree_hash, apps, is_prod
+			created_at, last_seen, pubkey, group_name, update_name, tag, target_name, ostree_hash, apps, json(labels), is_prod
 		FROM devices
 		WHERE uuid = ? AND deleted=false`,
 	)
@@ -333,11 +344,11 @@ func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 func (s *stmtDeviceGet) run(
 	uuid string,
 	createdAt, lastSeen *int64,
-	pubkey, groupName, updateName, tag, targetName, ostreeHash, apps *string,
+	pubkey, groupName, updateName, tag, targetName, ostreeHash, apps, labels *string,
 	isProd *bool,
 ) error {
 	return s.Stmt.QueryRow(uuid).Scan(
-		createdAt, lastSeen, pubkey, groupName, updateName, tag, targetName, ostreeHash, apps, isProd)
+		createdAt, lastSeen, pubkey, groupName, updateName, tag, targetName, ostreeHash, apps, labels, isProd)
 }
 
 type stmtDeviceList storage.DbStmt
@@ -345,7 +356,7 @@ type stmtDeviceList storage.DbStmt
 func (s *stmtDeviceList) Init(db storage.DbHandle, orderBy string) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceList", fmt.Sprintf(`
 		SELECT
-			uuid, created_at, last_seen, target_name, tag, group_name, is_prod
+			uuid, created_at, last_seen, target_name, tag, group_name, is_prod, json(labels)
 		FROM devices
 		WHERE deleted=false
 		ORDER BY %s LIMIT ? OFFSET ?`, orderBy),
@@ -363,11 +374,17 @@ func (s *stmtDeviceList) run(limit, offset int, dl *[]DeviceListItem) error {
 			}
 		}()
 		for rows.Next() {
-			var d DeviceListItem
+			var (
+				d      DeviceListItem
+				labels []byte
+			)
 			if err = rows.Scan(
-				&d.Uuid, &d.CreatedAt, &d.LastSeen, &d.Target, &d.Tag, &d.GroupName, &d.IsProd,
+				&d.Uuid, &d.CreatedAt, &d.LastSeen, &d.Target, &d.Tag, &d.GroupName, &d.IsProd, &labels,
 			); err != nil {
 				return err
+			}
+			if err = json.Unmarshal(labels, &d.Labels); err != nil {
+				return fmt.Errorf("failed to parse device labels: %w", err)
 			}
 			*dl = append(*dl, d)
 		}
