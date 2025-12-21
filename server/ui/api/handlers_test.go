@@ -260,6 +260,8 @@ func TestApiDeviceLabelsPatch(t *testing.T) {
 	tc := NewTestClient(t)
 	_, err := tc.gw.DeviceCreate("test-device-1", "pubkey1", true)
 	require.Nil(t, err)
+	_, err = tc.gw.DeviceCreate("test-device-2", "pubkey2", false)
+	require.Nil(t, err)
 
 	headers := []string{"content-type", "application/json"}
 	data := `{"upserts":{"name":"test","foo":"bar"}}`
@@ -293,6 +295,15 @@ func TestApiDeviceLabelsPatch(t *testing.T) {
 	tc.PATCH("/devices/test-device-1/labels", 400, data, headers...)
 	data = `{"upserts":{"foo":"special&value"}}`
 	tc.PATCH("/devices/test-device-1/labels", 400, data, headers...)
+
+	// Duplicates are not allowed for a "name" label, but allowed for other labels.
+	// Note that label names are lowercase only i.e. there can be a label "name" but not "Name".
+	data = `{"upserts":{"name":"test"}}`
+	tc.PATCH("/devices/test-device-2/labels", 409, data, headers...)
+	data = `{"upserts":{"name":"test2","bar":"baz"}}`
+	tc.PATCH("/devices/test-device-2/labels", 200, data, headers...)
+	data = `{"upserts":{"name":"test-2"}}`
+	tc.PATCH("/devices/test-device-2/labels", 200, data, headers...)
 }
 
 func TestApiAppsStates(t *testing.T) {

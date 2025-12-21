@@ -124,6 +124,9 @@ func (h *handlers) deviceLabelsPatch(c echo.Context) error {
 		if labels, err := parseLabels(labelsReq); err != nil {
 			return EchoError(c, err, http.StatusBadRequest, "Bad Request")
 		} else if err = h.storage.PatchDeviceLabels(labels, []string{device.Uuid}); err != nil {
+			if storage.IsDbError(err, storage.ErrDbConstraintUnique) {
+				return EchoError(c, err, http.StatusConflict, "A device with the same 'name' label value already exists")
+			}
 			return EchoError(c, err, http.StatusInternalServerError, "Failed to update device labels")
 		}
 		return c.NoContent(http.StatusOK)

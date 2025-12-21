@@ -9,11 +9,24 @@ import (
 	"fmt"
 	"os"
 
-	_ "github.com/mattn/go-sqlite3"
+	sqllite "github.com/mattn/go-sqlite3"
 )
 
 type DbHandle struct {
 	db *sql.DB
+}
+
+var (
+	ErrDbConstraintUnique = sqllite.ErrConstraintUnique
+)
+
+func IsDbError(err error, code sqllite.ErrNoExtended) bool {
+	// errors.Is does not help with sqllite error codes, as they are numbers, not errors
+	var e sqllite.Error
+	if errors.As(err, &e) {
+		return e.ExtendedCode == code
+	}
+	return false
 }
 
 func NewDb(dbfile string) (*DbHandle, error) {
@@ -68,8 +81,12 @@ func createTables(db *sql.DB) error {
 			update_name VARCHAR(80) DEFAULT "",
 			target_name VARCHAR(80) DEFAULT "",
 			ostree_hash VARCHAR(80) DEFAULT "",
-			apps VARCHAR(2048) DEFAULT ""
+			apps VARCHAR(2048) DEFAULT "",
+
+			name VARCHAR(80) GENERATED ALWAYS AS (labels ->> '$.name')
 		) WITHOUT ROWID;
+
+		CREATE UNIQUE INDEX idx_device_name ON devices(name);
 
 		CREATE TABLE users (
 			id             INTEGER PRIMARY KEY AUTOINCREMENT,

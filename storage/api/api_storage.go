@@ -45,6 +45,9 @@ var (
 	NewFs = storage.NewFs
 
 	DbFile = storage.DbFile
+
+	IsDbError             = storage.IsDbError
+	ErrDbConstraintUnique = storage.ErrDbConstraintUnique
 )
 
 // DeviceListOpts lets you set the order devices will be returned
