@@ -49,7 +49,6 @@ func TestStorage(t *testing.T) {
 	_, err = dg.DeviceCreate("uuid-2", "pubkey-value-2", false)
 	require.Nil(t, err)
 
-	require.Nil(t, s.SetGroupName("group137", []string{"uuid-1"}))
 	uuids, err := s.SetUpdateName("tag", "update42", false, []string{"uuid-1", "uuid-2"}, nil)
 	require.Nil(t, err)
 	require.Equal(t, 1, len(uuids))
@@ -75,7 +74,6 @@ func TestStorage(t *testing.T) {
 	assert.Equal(t, "hash", d.OstreeHash)
 	assert.Equal(t, "tag", d.Tag)
 	assert.Equal(t, "pubkey-value-1", d.PubKey)
-	assert.Equal(t, "group137", d.GroupName)
 	assert.Equal(t, "update42", d.UpdateName)
 	assert.Equal(t, "aktoml content", d.Aktoml)
 }

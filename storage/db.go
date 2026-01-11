@@ -77,16 +77,17 @@ func createTables(db *sql.DB) error {
 			last_seen INT DEFAULT 0,
 			tag VARCHAR(80) DEFAULT "",
 			labels JSONB(2048) DEFAULT "{}",
-			group_name VARCHAR(80) DEFAULT "",
 			update_name VARCHAR(80) DEFAULT "",
 			target_name VARCHAR(80) DEFAULT "",
 			ostree_hash VARCHAR(80) DEFAULT "",
 			apps VARCHAR(2048) DEFAULT "",
 
-			name VARCHAR(80) GENERATED ALWAYS AS (labels ->> '$.name')
+			name VARCHAR(80) GENERATED ALWAYS AS (labels ->> '$.name') VIRTUAL,
+			group_name VARCHAR(80) GENERATED ALWAYS AS (labels ->> '$.group') VIRTUAL
 		) WITHOUT ROWID;
 
 		CREATE UNIQUE INDEX idx_device_name ON devices(name);
+		CREATE INDEX idx_device_group ON devices(group_name);
 
 		CREATE TABLE device_labels (
 			label VARCHAR(20) NOT NULL PRIMARY KEY

@@ -629,7 +629,8 @@ func TestApiRolloutPut(t *testing.T) {
 	require.Nil(t, err)
 	require.Nil(t, d.CheckIn("", "tag3", "", ""))
 
-	require.Nil(t, tc.api.SetGroupName("grp1", []string{"prod3", "prod4", "ci4"}))
+	grp1 := "grp1"
+	require.Nil(t, tc.api.PatchDeviceLabels(map[string]*string{"group": &grp1}, []string{"prod3", "prod4", "ci4"}))
 
 	tc.PUT("/updates/ci/tag1/update1/rollouts/rocks", 202,
 		`{"uuids":["ci1","ci2","ci3"]}`, "content-type", "application/json")

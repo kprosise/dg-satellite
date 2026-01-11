@@ -73,7 +73,6 @@ type DeviceListItem struct {
 	LastSeen  int64  `json:"last-seen"`
 	Target    string `json:"target"`
 	Tag       string `json:"tag"`
-	GroupName string `json:"group-name"`
 	IsProd    bool   `json:"is-prod"`
 	Labels    Labels `json:"labels"`
 }
@@ -107,7 +106,6 @@ type Storage struct {
 	stmtDeviceGet       stmtDeviceGet
 	stmtDeviceGetLabels stmtDeviceGetLabels
 	stmtDeviceList      map[OrderBy]stmtDeviceList
-	stmtDeviceSetGroup  stmtDeviceSetGroup
 	stmtDeviceSetLabels stmtDeviceSetLabels
 	stmtDeviceSetUpdate stmtDeviceSetUpdate
 }
@@ -172,7 +170,6 @@ func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
 	if err := db.InitStmt(
 		&handle.stmtDeviceGet,
 		&handle.stmtDeviceGetLabels,
-		&handle.stmtDeviceSetGroup,
 		&handle.stmtDeviceSetLabels,
 		&handle.stmtDeviceSetUpdate,
 	); err != nil {
@@ -218,7 +215,7 @@ func (s Storage) DeviceGet(uuid string) (*Device, error) {
 	if err := s.stmtDeviceGet.run(
 		uuid,
 		&d.CreatedAt, &d.LastSeen,
-		&d.PubKey, &d.GroupName, &d.UpdateName, &d.Tag, &d.Target, &d.OstreeHash,
+		&d.PubKey, &d.UpdateName, &d.Tag, &d.Target, &d.OstreeHash,
 		&apps, &labels, &d.IsProd,
 	); err != nil {
 		if err == sql.ErrNoRows {
@@ -320,10 +317,6 @@ func (s Storage) RolloverRolloutJournal(isProd bool) error {
 	return s.getRolloutsFsHandle(isProd).RolloverJournal()
 }
 
-func (s Storage) SetGroupName(groupName string, uuids []string) error {
-	return s.stmtDeviceSetGroup.run(groupName, uuids)
-}
-
 func (s Storage) GetKnownDeviceLabelNames() ([]string, error) {
 	return s.stmtDeviceGetLabels.run()
 }
@@ -360,7 +353,7 @@ type stmtDeviceGet storage.DbStmt
 func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceGet", `
 		SELECT
-			created_at, last_seen, pubkey, group_name, update_name, tag, target_name, ostree_hash, apps, json(labels), is_prod
+			created_at, last_seen, pubkey, update_name, tag, target_name, ostree_hash, apps, json(labels), is_prod
 		FROM devices
 		WHERE uuid = ? AND deleted=false`,
 	)
@@ -370,11 +363,11 @@ func (s *stmtDeviceGet) Init(db storage.DbHandle) (err error) {
 func (s *stmtDeviceGet) run(
 	uuid string,
 	createdAt, lastSeen *int64,
-	pubkey, groupName, updateName, tag, targetName, ostreeHash, apps, labels *string,
+	pubkey, updateName, tag, targetName, ostreeHash, apps, labels *string,
 	isProd *bool,
 ) error {
 	return s.Stmt.QueryRow(uuid).Scan(
-		createdAt, lastSeen, pubkey, groupName, updateName, tag, targetName, ostreeHash, apps, labels, isProd)
+		createdAt, lastSeen, pubkey, updateName, tag, targetName, ostreeHash, apps, labels, isProd)
 }
 
 type stmtDeviceList storage.DbStmt
@@ -382,7 +375,7 @@ type stmtDeviceList storage.DbStmt
 func (s *stmtDeviceList) Init(db storage.DbHandle, orderBy string) (err error) {
 	s.Stmt, err = db.Prepare("apiDeviceList", fmt.Sprintf(`
 		SELECT
-			uuid, created_at, last_seen, target_name, tag, group_name, is_prod, json(labels)
+			uuid, created_at, last_seen, target_name, tag, is_prod, json(labels)
 		FROM devices
 		WHERE deleted=false
 		ORDER BY %s LIMIT ? OFFSET ?`, orderBy),
@@ -405,7 +398,7 @@ func (s *stmtDeviceList) run(limit, offset int, dl *[]DeviceListItem) error {
 				labels []byte
 			)
 			if err = rows.Scan(
-				&d.Uuid, &d.CreatedAt, &d.LastSeen, &d.Target, &d.Tag, &d.GroupName, &d.IsProd, &labels,
+				&d.Uuid, &d.CreatedAt, &d.LastSeen, &d.Target, &d.Tag, &d.IsProd, &labels,
 			); err != nil {
 				return err
 			}
@@ -419,26 +412,6 @@ func (s *stmtDeviceList) run(limit, offset int, dl *[]DeviceListItem) error {
 		}
 	}
 	return nil
-}
-
-type stmtDeviceSetGroup storage.DbStmt
-
-func (s *stmtDeviceSetGroup) Init(db storage.DbHandle) (err error) {
-	s.Stmt, err = db.Prepare("apiDeviceSetGroupName", `
-		UPDATE devices
-		SET group_name=?
-		WHERE uuid IN (SELECT value from json_each(?))`,
-	)
-	return
-}
-
-func (s *stmtDeviceSetGroup) run(groupName string, uuids []string) error {
-	uuidsStr, err := json.Marshal(uuids)
-	if err != nil {
-		return fmt.Errorf("unexpected error marshalling UUIDs to JSON: %w", err)
-	}
-	_, err = s.Stmt.Exec(groupName, uuidsStr)
-	return err
 }
 
 type stmtDeviceSetLabels storage.DbStmt
