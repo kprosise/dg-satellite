@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 
 	"github.com/labstack/echo/v4"
 
@@ -112,6 +113,8 @@ func (h *handlers) deviceAppsStatesGet(c echo.Context) error {
 	})
 }
 
+var standardLabels = []string{"name", "group"}
+
 // @Summary Get known device label names
 // @Produce json
 // @Success 200 []string
@@ -120,6 +123,11 @@ func (h *handlers) deviceKnownLabelsGet(c echo.Context) error {
 	if labels, err := h.storage.GetKnownDeviceLabelNames(); err != nil {
 		return EchoError(c, err, http.StatusInternalServerError, "Failed to lookup known device labels")
 	} else {
+		// Make sure that standard labels are always present
+		labels = slices.DeleteFunc(labels, func(s string) bool {
+			return slices.Contains(standardLabels, s)
+		})
+		labels = append(standardLabels, labels...)
 		return c.JSON(http.StatusOK, labels)
 	}
 }
