@@ -20,8 +20,8 @@
         <div id="labelsContainer">
           {{ range $key, $value := .Device.Labels }}
           <fieldset class="grid">
-            <input list="label-keys" value="{{$key}}"/>
-            <input value="{{$value}}"/>
+	    <input list="label-keys" value="{{$key}}" onblur="onKeyBlur(this)"/>
+            <input value="{{$value}}" {{ if eq $key "group" }} list="group-values" {{ end }} />
             <i class="trash" title="Remove label"></i>
           </fieldset>
           {{ end }}
@@ -32,6 +32,11 @@
 	<datalist id="label-keys">
 		{{ range $_, $key := .KnownLabels }}
 		<option value="{{$key}}"/>
+		{{ end }}
+	</datalist>
+	<datalist id="group-values">
+		{{ range $_, $group := .KnownGroups }}
+		<option value="{{$group}}"/>
 		{{ end }}
 	</datalist>
       </form>
@@ -48,7 +53,7 @@
         const newFieldset = document.createElement('fieldset');
         newFieldset.className = 'grid';
         newFieldset.innerHTML = `
-          <input list="label-keys" placeholder="Type to select or enter key"/>
+          <input list="label-keys" placeholder="Type to select or enter key" onblur="onKeyBlur(this)"/>
           <input placeholder="Enter value"/>
           <i class="trash" title="Remove label" onclick="removeLabel(this)"></i>
         `;
@@ -97,6 +102,17 @@
           console.error('Error:', error);
           alert('Error saving labels: ' + error.message);
         });
+      }
+
+      function onKeyBlur(element) {
+        if (element.value.trim() != 'group') {
+          return;
+        }
+        const fieldset = element.parentElement;
+        const inputs = fieldset.querySelectorAll('input');
+        if (inputs.length >= 2) {
+          inputs[1].setAttribute('list', 'group-values')
+        }
       }
 
       // Add click handlers to existing trash icons

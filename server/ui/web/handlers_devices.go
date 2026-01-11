@@ -137,15 +137,21 @@ func (h handlers) devicesLabelsGet(c echo.Context) error {
 	if err := getJson(c.Request().Context(), "/v1/known-labels/devices", &knownLabels); err != nil {
 		return h.handleUnexpected(c, err)
 	}
+	var knownGroups []string
+	if err := getJson(c.Request().Context(), "/v1/known-labels/device-groups", &knownGroups); err != nil {
+		return h.handleUnexpected(c, err)
+	}
 
 	ctx := struct {
 		baseCtx
 		Device      api.Device
 		KnownLabels []string
+		KnownGroups []string
 	}{
 		baseCtx:     h.baseCtx(c, "Manage labels for - "+device.Uuid, "devices"),
 		Device:      device,
 		KnownLabels: knownLabels,
+		KnownGroups: knownGroups,
 	}
 	return h.templates.ExecuteTemplate(c.Response(), "device_labels.html", ctx)
 }
