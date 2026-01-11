@@ -104,6 +104,7 @@ type Storage struct {
 	fs *storage.FsHandle
 
 	stmtDeviceGet       stmtDeviceGet
+	stmtDeviceGetGroups stmtDeviceGetGroups
 	stmtDeviceGetLabels stmtDeviceGetLabels
 	stmtDeviceList      map[OrderBy]stmtDeviceList
 	stmtDeviceSetLabels stmtDeviceSetLabels
@@ -169,6 +170,7 @@ func NewStorage(db *storage.DbHandle, fs *storage.FsHandle) (*Storage, error) {
 
 	if err := db.InitStmt(
 		&handle.stmtDeviceGet,
+		&handle.stmtDeviceGetGroups,
 		&handle.stmtDeviceGetLabels,
 		&handle.stmtDeviceSetLabels,
 		&handle.stmtDeviceSetUpdate,
@@ -317,6 +319,10 @@ func (s Storage) RolloverRolloutJournal(isProd bool) error {
 	return s.getRolloutsFsHandle(isProd).RolloverJournal()
 }
 
+func (s Storage) GetKnownDeviceGroupNames() ([]string, error) {
+	return s.stmtDeviceGetGroups.run()
+}
+
 func (s Storage) GetKnownDeviceLabelNames() ([]string, error) {
 	return s.stmtDeviceGetLabels.run()
 }
@@ -449,6 +455,24 @@ func (s *stmtDeviceGetLabels) run() (labels []string, err error) {
 	var labelsStr []byte
 	if err = s.Stmt.QueryRow().Scan(&labelsStr); err == nil {
 		err = json.Unmarshal(labelsStr, &labels)
+	}
+	return
+}
+
+type stmtDeviceGetGroups storage.DbStmt
+
+func (s *stmtDeviceGetGroups) Init(db storage.DbHandle) (err error) {
+	s.Stmt, err = db.Prepare("apiDeviceGetLabelNames", `
+		SELECT json_group_array(DISTINCT group_name) FROM devices
+		WHERE group_name != ""
+	`)
+	return
+}
+
+func (s *stmtDeviceGetGroups) run() (groups []string, err error) {
+	var groupsStr []byte
+	if err = s.Stmt.QueryRow().Scan(&groupsStr); err == nil {
+		err = json.Unmarshal(groupsStr, &groups)
 	}
 	return
 }

@@ -316,12 +316,15 @@ func TestApiDeviceLabelsPatch(t *testing.T) {
 	data := `{"upserts":{"name":"test","foo":"bar"}}`
 	tc.PATCH("/devices/test-device-1/labels", 403, data, headers...)
 	tc.GET("/known-labels/devices", 403)
+	tc.GET("/known-labels/device-groups", 403)
 	tc.u.AllowedScopes = users.ScopeDevicesR
 	tc.PATCH("/devices/test-device-1/labels", 403, data, headers...)
 
-	var labels []string
+	var labels, groups []string
 	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/devices", 200), &labels))
 	assert.Equal(t, []string{"name", "group"}, labels)
+	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/device-groups", 200), &groups))
+	assert.Equal(t, []string{}, groups)
 
 	tc.u.AllowedScopes = users.ScopeDevicesRU
 	tc.PATCH("/devices/test-device-1/labels", 200, data, headers...)
@@ -334,7 +337,7 @@ func TestApiDeviceLabelsPatch(t *testing.T) {
 	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/devices", 200), &labels))
 	assert.Equal(t, []string{"name", "group", "foo"}, labels)
 
-	data = `{"upserts":{"bar":"baz"},"deletes":["foo"]}}`
+	data = `{"upserts":{"bar":"baz","group":"test"},"deletes":["foo"]}}`
 	tc.PATCH("/devices/test-device-1/labels", 200, data, headers...)
 
 	device = apiStorage.Device{}
@@ -345,6 +348,8 @@ func TestApiDeviceLabelsPatch(t *testing.T) {
 
 	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/devices", 200), &labels))
 	assert.Equal(t, []string{"name", "group", "bar", "foo"}, labels)
+	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/device-groups", 200), &groups))
+	assert.Equal(t, []string{"test"}, groups)
 
 	data = `Bad JSON`
 	tc.PATCH("/devices/test-device-1/labels", 400, data, headers...)
@@ -361,13 +366,21 @@ func TestApiDeviceLabelsPatch(t *testing.T) {
 	// Note that label names are lowercase only i.e. there can be a label "name" but not "Name".
 	data = `{"upserts":{"name":"test"}}`
 	tc.PATCH("/devices/test-device-2/labels", 409, data, headers...)
-	data = `{"upserts":{"name":"test2","bar":"baz"}}`
+	data = `{"upserts":{"name":"test2","bar":"baz","group":"test"}}`
 	tc.PATCH("/devices/test-device-2/labels", 200, data, headers...)
-	data = `{"upserts":{"name":"test-2"}}`
+	data = `{"upserts":{"name":"test-2","group":"other"}}`
 	tc.PATCH("/devices/test-device-2/labels", 200, data, headers...)
 
 	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/devices", 200), &labels))
 	assert.Equal(t, []string{"name", "group", "bar", "foo"}, labels)
+	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/device-groups", 200), &groups))
+	assert.Equal(t, []string{"other", "test"}, groups)
+
+	// Unlike label names which are remembered forever, group names are forgotten when no device belong to them.
+	data = `{"upserts":{"group":"new"}}`
+	tc.PATCH("/devices/test-device-2/labels", 200, data, headers...)
+	require.Nil(t, json.Unmarshal(tc.GET("/known-labels/device-groups", 200), &groups))
+	assert.Equal(t, []string{"new", "test"}, groups)
 }
 
 func TestApiDeviceLabelsPut(t *testing.T) {

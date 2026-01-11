@@ -113,6 +113,18 @@ func (h *handlers) deviceAppsStatesGet(c echo.Context) error {
 	})
 }
 
+// @Summary Get known device group names
+// @Produce json
+// @Success 200 []string
+// @Router  /known-labels/device-groups [get]
+func (h *handlers) deviceKnownGroupsGet(c echo.Context) error {
+	if groups, err := h.storage.GetKnownDeviceGroupNames(); err != nil {
+		return EchoError(c, err, http.StatusInternalServerError, "Failed to lookup known device groups")
+	} else {
+		return c.JSON(http.StatusOK, groups)
+	}
+}
+
 var standardLabels = []string{"name", "group"}
 
 // @Summary Get known device label names
