@@ -11,6 +11,9 @@ The project also includes a user-facing REST API and Web UI for managing devices
 ## Quick Start
 Follow the [Quick Start](./docs/quick-start.md) guide to get a server running in development mode.
 
+## API access
+Follow the [API](./docs/api.md) to learn how to access and use the REST API.
+
 ## Developing
 The project is a single Golang binary that can be built with:
 ```
