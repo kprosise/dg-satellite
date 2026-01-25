@@ -4,6 +4,8 @@
 package api
 
 import (
+	"io"
+
 	models "github.com/foundriesio/dg-satellite/storage/api"
 )
 
@@ -33,6 +35,11 @@ func (u UpdatesApi) Get(tag, updateName string) ([]string, error) {
 	return rollouts, u.api.Get(endpoint, &rollouts)
 }
 
+func (u UpdatesApi) Tail(tag, updateName string) (io.ReadCloser, error) {
+	endpoint := "/v1/updates/" + u.Type + "/" + tag + "/" + updateName
+	return u.api.GetStream(endpoint)
+}
+
 func (u UpdatesApi) GetRollout(tag, updateName, rollout string) (Rollout, error) {
 	var r Rollout
 	endpoint := "/v1/updates/" + u.Type + "/" + tag + "/" + updateName + "/rollouts/" + rollout
@@ -43,4 +50,9 @@ func (u UpdatesApi) CreateRollout(tag, updateName, rollout string, data Rollout)
 	endpoint := "/v1/updates/" + u.Type + "/" + tag + "/" + updateName + "/rollouts/" + rollout
 	_, err := u.api.Put(endpoint, data)
 	return err
+}
+
+func (u UpdatesApi) TailRollout(tag, updateName, rollout string) (io.ReadCloser, error) {
+	endpoint := "/v1/updates/" + u.Type + "/" + tag + "/" + updateName + "/rollouts/" + rollout
+	return u.api.GetStream(endpoint)
 }
