@@ -3,6 +3,12 @@
 
 package api
 
+import (
+	models "github.com/foundriesio/dg-satellite/storage/api"
+)
+
+type Rollout = models.Rollout
+
 type UpdatesApi struct {
 	api  *Api
 	Type string
@@ -25,4 +31,10 @@ func (u UpdatesApi) Get(tag, updateName string) ([]string, error) {
 	var rollouts []string
 	endpoint := "/v1/updates/" + u.Type + "/" + tag + "/" + updateName + "/rollouts"
 	return rollouts, u.api.Get(endpoint, &rollouts)
+}
+
+func (u UpdatesApi) GetRollout(tag, updateName, rollout string) (Rollout, error) {
+	var r Rollout
+	endpoint := "/v1/updates/" + u.Type + "/" + tag + "/" + updateName + "/rollouts/" + rollout
+	return r, u.api.Get(endpoint, &r)
 }
