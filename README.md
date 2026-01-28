@@ -8,8 +8,13 @@ There are two primary use cases for the satellite server:
 This project handles both use cases by implementing all the APIs used by Foundries.io update agents.
 The project also includes a user-facing REST API and Web UI for managing devices and updates.
 
-## Quick Start
+## Quick start
 Follow the [Quick Start](./docs/quick-start.md) guide to get a server running in development mode.
+
+## Adding updates
+The satellite server uses content from [Offline Updates](https://docs.foundries.io/96/user-guide/offline-update/offline-update.html)
+to serve devices their TUF, OSTree, and Container data. Follow the
+[updates](./docs/updates.md) guide for setting this up.
 
 ## API access
 Follow the [API](./docs/api.md) to learn how to access and use the REST API.
