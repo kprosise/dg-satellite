@@ -14,7 +14,7 @@ COPY . .
 RUN go build \
     --ldflags '-linkmode external -extldflags "-static"' \
     -o dg-satellite \
-    github.com/foundriesio/dg-satellite/cmd
+    github.com/foundriesio/dg-satellite/cmd/server
 
 FROM gcr.io/distroless/static-debian12
 COPY --from=builder /src/dg-satellite /usr/local/bin/
