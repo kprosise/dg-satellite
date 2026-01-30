@@ -4,6 +4,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/foundriesio/dg-satellite/server/ui/api"
@@ -44,6 +45,17 @@ func (h handlers) updatesGet(c echo.Context) error {
 	if err := getJson(c.Request().Context(), "/v1/known-labels/device-groups", &groups); err != nil {
 		return h.handleUnexpected(c, err)
 	}
+
+	url = fmt.Sprintf("/v1/updates/%s/%s/%s/tuf", c.Param("prod"), c.Param("tag"), c.Param("name"))
+	var tuf api.UpdateTufResp
+	if err := getJson(c.Request().Context(), url, &tuf); err != nil {
+		return h.handleUnexpected(c, err)
+	}
+	tufJson, err := json.MarshalIndent(tuf, "", "  ")
+	if err != nil {
+		return h.handleUnexpected(c, err)
+	}
+
 	ctx := struct {
 		baseCtx
 		Tag      string
@@ -51,6 +63,8 @@ func (h handlers) updatesGet(c echo.Context) error {
 		Prod     string
 		Rollouts []string
 		Groups   []string
+		Tuf      api.UpdateTufResp
+		TufJson  string
 	}{
 		baseCtx:  h.baseCtx(c, "Update Details", "updates"),
 		Tag:      c.Param("tag"),
@@ -58,6 +72,8 @@ func (h handlers) updatesGet(c echo.Context) error {
 		Prod:     c.Param("prod"),
 		Rollouts: rollouts,
 		Groups:   groups,
+		Tuf:      tuf,
+		TufJson:  string(tufJson),
 	}
 	return h.templates.ExecuteTemplate(c.Response(), "update.html", ctx)
 }
