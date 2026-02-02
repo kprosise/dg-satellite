@@ -23,6 +23,10 @@ Follow the [API](./docs/api.md) to learn how to access and use the REST API.
 Follow the [configuring authentication](./docs/auth.md) guide for chosing the
 method that meets your requirements.
 
+## Running in production
+The [production guide](./docs/production.md) covers considerations when
+deploying the satellite server for production use.
+
 ## Developing
 The project is a single Golang binary that can be built with:
 ```
