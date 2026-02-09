@@ -185,10 +185,13 @@ func (p oauth2BaseProvider) handleOauthCallback(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Could not create user session")
 	}
 	c.SetCookie(&http.Cookie{
-		Name:    AuthCookieName,
-		Value:   sessionId,
-		Path:    "/",
-		Expires: expires,
+		Name:     AuthCookieName,
+		Value:    sessionId,
+		Path:     "/",
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	return c.Redirect(http.StatusTemporaryRedirect, "/")
@@ -198,9 +201,12 @@ func generateStateOauthCookie(c echo.Context) string {
 	expiration := time.Now().Add(1 * time.Hour)
 	state := rand.Text()
 	c.SetCookie(&http.Cookie{
-		Name:    "dg-oauthstate",
-		Value:   state,
-		Expires: expiration,
+		Name:     "dg-oauthstate",
+		Value:    state,
+		Expires:  expiration,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 	})
 	return state
 }
