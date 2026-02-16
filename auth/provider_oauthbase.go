@@ -206,7 +206,7 @@ func generateStateOauthCookie(c echo.Context) string {
 		Expires:  expiration,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 	return state
 }
