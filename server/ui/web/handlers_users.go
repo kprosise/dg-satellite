@@ -25,12 +25,14 @@ func (h handlers) usersList(c echo.Context) error {
 		ScopesList []string
 		CanDelete  bool
 		CanUpdate  bool
+		LocalAuth  bool
 	}{
 		baseCtx:    h.baseCtx(c, "Users", "users"),
 		Users:      user,
 		ScopesList: users.ScopesAvailable(),
 		CanDelete:  CtxGetSession(c.Request().Context()).User.AllowedScopes.Has(users.ScopeUsersD),
 		CanUpdate:  CtxGetSession(c.Request().Context()).User.AllowedScopes.Has(users.ScopeUsersRU),
+		LocalAuth:  h.provider.Name() == "local",
 	}
 	return h.templates.ExecuteTemplate(c.Response(), "users.html", ctx)
 }

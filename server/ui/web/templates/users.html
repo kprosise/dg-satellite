@@ -22,6 +22,9 @@
               <a href="/users/{{.Username}}/audit-log"><i title="View audit log" class="history"></i></a>
               {{ if and $.CanUpdate }}
               <i title="Change scopes" class="edit" onclick="showScopesModal('{{.Username}}', '{{.AllowedScopes}}')"></i>
+              {{ if and $.LocalAuth (ne .Username $.User.Username) }}
+              <i title="Reset password" class="password-reset" onclick="showResetPasswordModal('{{.Username}}')"></i>
+              {{ end }}
               {{ end }}
               {{ if and $.CanDelete (ne .Username $.User.Username) }}
               <i title="Delete user" class="trash" onclick="deleteUser('{{.Username}}')"></i>
@@ -50,6 +53,28 @@
           </footer>
         </article>
       </dialog>
+      {{ if and .LocalAuth .CanUpdate }}
+      <dialog id="resetPasswordModal">
+        <article>
+          <header>
+            <button aria-label="Close" rel="prev" onclick="resetPasswordModal.close()"></button>
+            <h3>Reset Password</h3>
+          </header>
+          <form method="dialog">
+            <p>Reset password for user: <strong id="resetPasswordUser"></strong></p>
+            <label for="resetNewPassword">New Password:</label>
+            <input type="password" id="resetNewPassword" name="resetNewPassword" required>
+            <label for="resetConfirmPassword">Confirm New Password:</label>
+            <input type="password" id="resetConfirmPassword" name="resetConfirmPassword" required>
+            <span id="resetPasswordError" style="color: red; display: none;">Passwords do not match</span>
+          </form>
+          <footer>
+            <button role="button" onclick="resetPasswordModal.close()">Cancel</button>
+            <button autofocus="" role="button" onclick="resetPassword()">Reset Password</button>
+          </footer>
+        </article>
+      </dialog>
+      {{ end }}
     </section>
 
     <script>
@@ -97,6 +122,76 @@
           alert('Error deleting user: ' + error.message);
         });
       }
+
+      let resetUser = null;
+
+      function showResetPasswordModal(username) {
+        resetUser = username;
+        document.getElementById('resetPasswordUser').textContent = username;
+        document.getElementById('resetNewPassword').value = '';
+        document.getElementById('resetConfirmPassword').value = '';
+        document.getElementById('resetPasswordError').style.display = 'none';
+        resetPasswordModal.show();
+        document.getElementById('resetNewPassword').focus();
+      }
+
+      function resetPassword() {
+        if (!resetUser) {
+          alert('No user selected.');
+          return;
+        }
+
+        const newPassword = document.getElementById('resetNewPassword').value;
+        const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+        if (!newPassword) {
+          alert('New password is required.');
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          document.getElementById('resetPasswordError').style.display = 'inline';
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('newPassword', newPassword);
+
+        fetch('/users/' + resetUser + '/reset-password', {
+          method: 'POST',
+          body: formData
+        })
+        .then(async response => {
+          if (response.ok) {
+            resetPasswordModal.close();
+          } else {
+            const errorText = await response.text();
+            alert('Error resetting password: ' + errorText);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error resetting password: ' + error.message);
+        });
+      }
+
+      // Set up password match validation for reset dialog
+      document.addEventListener('DOMContentLoaded', function() {
+        const resetConfirm = document.getElementById('resetConfirmPassword');
+        const resetNew = document.getElementById('resetNewPassword');
+        const resetError = document.getElementById('resetPasswordError');
+        if (resetConfirm && resetNew) {
+          function checkResetMatch() {
+            if (resetConfirm.value && resetNew.value !== resetConfirm.value) {
+              resetError.style.display = 'inline';
+            } else {
+              resetError.style.display = 'none';
+            }
+          }
+          resetConfirm.addEventListener('input', checkResetMatch);
+          resetNew.addEventListener('input', checkResetMatch);
+        }
+      });
 
       function updateScopes() {
         if (!currentUser) {

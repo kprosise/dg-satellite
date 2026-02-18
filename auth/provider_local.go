@@ -67,6 +67,7 @@ func (p *localProvider) Configure(e *echo.Echo, userStorage *users.Storage, cfg 
 
 	e.POST("/auth/login", p.handleLogin)
 	e.POST("/users/:username/password", p.handlePasswordChange)
+	e.POST("/users/:username/reset-password", p.handlePasswordReset)
 	return nil
 }
 
@@ -200,6 +201,62 @@ func (p *localProvider) handlePasswordChange(c echo.Context) error {
 	if rc, err := p.setPassword(u, newPassword); err != nil {
 		return server.EchoError(c, err, rc, err.Error())
 	}
+	return c.String(http.StatusOK, "")
+}
+
+func (p *localProvider) handlePasswordReset(c echo.Context) error {
+	session, err := p.GetSession(c)
+	if err != nil {
+		return server.EchoError(c, err, http.StatusInternalServerError, err.Error())
+	} else if session == nil {
+		err := errors.New("authentication required")
+		return server.EchoError(c, err, http.StatusUnauthorized, "authentication required")
+	}
+
+	if !session.User.AllowedScopes.Has(users.ScopeUsersRU) {
+		err := fmt.Errorf("user missing required scope: %s", users.ScopeUsersRU)
+		return server.EchoError(c, err, http.StatusForbidden, err.Error())
+	}
+
+	username := c.Param("username")
+	u, err := p.users.Get(username)
+	if err != nil {
+		return server.EchoError(c, err, http.StatusInternalServerError, "Unable to look up user")
+	} else if u == nil {
+		return server.EchoError(c, errors.New("user not found"), http.StatusNotFound, "User not found")
+	}
+
+	if username == session.User.Username {
+		err := errors.New("users cannot reset their own password")
+		return server.EchoError(c, err, http.StatusBadRequest, err.Error())
+	}
+
+	newPassword := c.FormValue("newPassword")
+	if newPassword == "" {
+		return server.EchoError(c, errors.New("missing new password"), http.StatusBadRequest, "New password is required")
+	}
+
+	var localData localProviderUserData
+	if err := json.Unmarshal(u.AuthProviderData, &localData); err != nil {
+		return server.EchoError(c, err, http.StatusInternalServerError, "Unable to unmarshal auth provider data")
+	}
+
+	// set the password age to 0 so that the user is forced to change it on next login
+	localData.PasswordTimestamp = 0
+	u.AuthProviderData, err = json.Marshal(localData)
+	if err != nil {
+		return server.EchoError(c, err, http.StatusInternalServerError, "Unable to marshal auth provider data")
+	}
+
+	hashed, err := PasswordHash(newPassword)
+	if err != nil {
+		return server.EchoError(c, err, http.StatusInternalServerError, "Unable to hash password")
+	}
+	u.Password = hashed
+	if err := u.Update("Password reset by " + session.User.Username); err != nil {
+		return server.EchoError(c, err, http.StatusInternalServerError, "Unable to reset password for user")
+	}
+
 	return c.String(http.StatusOK, "")
 }
 
